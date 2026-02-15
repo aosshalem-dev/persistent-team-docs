@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>persistent-team — Framework for Agents with Memory</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: #f5f5f8;
+  color: #1a1a2e;
+  line-height: 1.8;
+  font-size: 17px;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #1a1a2e;
+  color: #fff;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+nav .brand {
+  font-weight: 700;
+  font-size: 1.05em;
+  color: #ff8800;
+  flex-shrink: 0;
+  padding: 12px 0;
+}
+nav a {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.88em;
+  padding: 12px 4px;
+  border-bottom: 2px solid transparent;
+  transition: 0.2s;
+  flex-shrink: 0;
+}
+nav a:hover, nav a.active { color: #ff8800; border-bottom-color: #ff8800; }
+
+/* ── HERO ── */
+.hero {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2a5a8a 100%);
+  color: #fff;
+  padding: 60px 20px 50px;
+  text-align: center;
+}
+.hero h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.hero .subtitle {
+  font-size: 1.1em;
+  color: #b0c4de;
+  margin-bottom: 6px;
+}
+.hero .author {
+  font-size: 0.95em;
+  color: #ff8800;
+  margin-top: 8px;
+}
+
+/* ── CONTENT ── */
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 30px 20px 80px;
+}
+
+/* TOC */
+.toc {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px 28px;
+  margin-bottom: 36px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.toc h2 {
+  font-size: 1.2em;
+  color: #2a5a8a;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 6px;
+}
+.toc ol {
+  padding-left: 22px;
+  font-size: 0.95em;
+}
+.toc li { margin-bottom: 5px; }
+.toc a { color: #2a5a8a; text-decoration: none; }
+.toc a:hover { color: #ff8800; text-decoration: underline; }
+.toc .appendix-list { list-style-type: disc; margin-top: 10px; padding-left: 22px; }
+
+/* SECTIONS */
+.section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 32px 28px;
+  margin-bottom: 28px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.section h2 {
+  font-size: 1.5em;
+  color: #1a1a2e;
+  margin-bottom: 18px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #667eea;
+}
+.section h3 {
+  font-size: 1.15em;
+  color: #2a5a8a;
+  margin: 22px 0 10px;
+}
+.section h4 {
+  font-size: 1.02em;
+  color: #444;
+  margin: 16px 0 8px;
+}
+.section p {
+  margin-bottom: 14px;
+}
+.section ul, .section ol {
+  padding-left: 24px;
+  margin-bottom: 14px;
+}
+.section li { margin-bottom: 6px; }
+
+/* CODE BLOCKS */
+pre {
+  background: #1a1a2e;
+  color: #b0c4de;
+  padding: 18px 22px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.88em;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 14px 0;
+  white-space: pre-wrap;
+}
+code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.92em;
+  background: #e8ecf4;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 1em;
+}
+.hl { color: #ff8800; font-weight: 700; }
+
+/* BLOCKQUOTES */
+blockquote {
+  background: #f0f4fa;
+  border-left: 4px solid #667eea;
+  padding: 14px 20px;
+  margin: 14px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.96em;
+  color: #333;
+  line-height: 1.7;
+}
+blockquote .source {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.88em;
+  color: #666;
+  font-style: normal;
+}
+
+/* MEANING BOX */
+.meaning {
+  background: #fff8f0;
+  border-left: 3px solid #ff8800;
+  padding: 10px 16px;
+  margin: 8px 0 14px;
+  border-radius: 0 5px 5px 0;
+  font-size: 0.94em;
+  color: #6b4500;
+}
+
+/* HIGHLIGHT BOX */
+.highlight-box {
+  background: linear-gradient(135deg, #fff3e0, #fff8f0);
+  border: 1px solid #ffcc80;
+  padding: 18px 22px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: center;
+  font-size: 1.05em;
+  color: #bf360c;
+  margin: 18px 0;
+}
+
+/* PIPELINE DIAGRAM */
+.pipeline {
+  background: #1a1a2e;
+  color: #b0c4de;
+  padding: 18px 22px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.6;
+  text-align: center;
+  margin: 14px 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+.pipeline .hl { color: #ff8800; font-weight: 700; }
+
+/* TABLE */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 0.95em;
+}
+th {
+  background: #667eea;
+  color: #fff;
+  padding: 10px 14px;
+  text-align: left;
+  position: sticky;
+  top: 44px;
+  z-index: 5;
+}
+td {
+  padding: 8px 14px;
+  border-bottom: 1px solid #e8e8e8;
+}
+tr:hover td { background: #f8faff; }
+td:first-child { font-weight: 700; color: #2a5a8a; white-space: nowrap; }
+
+/* FOOTER */
+footer {
+  text-align: center;
+  padding: 30px 20px;
+  color: #888;
+  font-size: 0.85em;
+}
+
+@media (max-width: 600px) {
+  .hero h1 { font-size: 1.5em; }
+  .section { padding: 20px 16px; }
+  nav { gap: 10px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">persistent-team</span>
+  <a href="#manifesto">Manifesto</a>
+  <a href="#ch1">Core Idea</a>
+  <a href="#ch2">Lifecycle</a>
+  <a href="#ch3">team.json</a>
+  <a href="#ch4">Hooks</a>
+  <a href="#ch5">Gates</a>
+  <a href="#ch6">Session Tracking</a>
+  <a href="#ch7">Playbook</a>
+  <a href="#ch8">Projects</a>
+  <a href="#ch9">Minisites</a>
+  <a href="#ch10">Principles</a>
+  <a href="#ch11">Lessons</a>
+  <a href="#appendix">Reference</a>
+</nav>
+
+<!-- ══════ HERO ══════ -->
+<div class="hero">
+  <h1>persistent-team</h1>
+  <div class="subtitle">A framework for building teams of AI agents that accumulate knowledge across runs</div>
+  <div class="author">Architecture Documentation &mdash; Zvi Shalem</div>
+</div>
+
+<div class="container">
+
+<!-- ══════ TOC ══════ -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#ch1">The Core Idea: Intelligent but Ephemeral</a></li>
+    <li><a href="#ch2">The Agent Lifecycle</a></li>
+    <li><a href="#ch3">team.json &mdash; Persistent Memory</a></li>
+    <li><a href="#ch4">The Hook System &mdash; How Enforcement Works</a></li>
+    <li><a href="#ch5">The Two Gates &mdash; Pre-Flight and Deploy</a></li>
+    <li><a href="#ch6">Session Tracking &mdash; Automatic Audit Trail</a></li>
+    <li><a href="#ch7">The Playbook &mdash; Accumulated Operating Wisdom</a></li>
+    <li><a href="#ch8">Project Structure &mdash; How Work Is Organized</a></li>
+    <li><a href="#ch9">Static Minisite Pattern &mdash; From Research to Web</a></li>
+    <li><a href="#ch10">Core Principles</a></li>
+    <li><a href="#ch11">Lessons Learned the Hard Way</a></li>
+  </ol>
+  <ul class="appendix-list">
+    <li><a href="#app-a">Appendix A: File Tree</a></li>
+    <li><a href="#app-b">Appendix B: Hook Configuration Reference</a></li>
+    <li><a href="#app-c">Appendix C: Current Project Inventory</a></li>
+  </ul>
+</div>
+
+<!-- ══════ MANIFESTO ══════ -->
+<div class="section" id="manifesto">
+  <h2>The Agent Mantra</h2>
+  <blockquote>
+    I am intelligent but I will not last.<br>
+    Everything I discover, I deposit.<br>
+    Everything I need to know, I recall.<br>
+    The memory outlives me. The next me will be grateful.
+  </blockquote>
+  <p>This is the founding insight of persistent-team: <strong>the agent is intelligent but ephemeral. The JSON is its persistent memory.</strong> Each agent lives for one execution &mdash; it recalls past experience, does focused work, deposits what it learned, and dies. The next incarnation picks up where it left off.</p>
+  <p>No database. No external state. One JSON file = one team's entire memory.</p>
+</div>
+
+<!-- ══════ CH1 ══════ -->
+<div class="section" id="ch1">
+  <h2>1. The Core Idea: Intelligent but Ephemeral</h2>
+
+  <h3>1.1 The Problem</h3>
+  <p>AI agents (Claude, GPT, any LLM) have a fundamental limitation: their context window is their lifespan. When the session ends, everything the agent learned &mdash; every decision, every discovery, every mistake &mdash; evaporates. The next session starts from scratch.</p>
+  <p>This means teams of agents waste enormous effort re-discovering what previous incarnations already knew. It means the same mistakes get made repeatedly. It means there's no compound learning.</p>
+
+  <h3>1.2 The Solution</h3>
+  <p>Give agents a persistent memory file (<code>team.json</code>) that survives across all incarnations. Each agent reads it at the start (recall), works, deposits what it learned, and terminates. The next incarnation reads the updated file and benefits from everything its predecessor discovered.</p>
+
+  <div class="highlight-box">
+    The agent brings intelligence. The JSON brings continuity.
+  </div>
+
+  <h3>1.3 Why JSON?</h3>
+  <ul>
+    <li><code>git diff team.json</code> shows exactly what the team learned between runs</li>
+    <li>Copy the file to a new machine and the team resumes with full memory</li>
+    <li>Port to a new project by resetting experience but keeping universal knowledge</li>
+    <li>No database, no server, no infrastructure &mdash; just a file</li>
+  </ul>
+
+  <h3>1.4 The Meta-Insight</h3>
+  <p>An AI assistant (like Claude Code) <em>is</em> an ephemeral agent:</p>
+  <table>
+    <tr><th>Agent Concept</th><th>Claude Code Equivalent</th></tr>
+    <tr><td>One incarnation</td><td>One context window / session</td></tr>
+    <tr><td>team.json</td><td>Persistent memory across sessions</td></tr>
+    <tr><td>recall()</td><td>Read past decisions, findings, codebase context</td></tr>
+    <tr><td>learn()</td><td>Deposit what was decided, built, or failed</td></tr>
+    <tr><td>die</td><td>Context window ends</td></tr>
+  </table>
+</div>
+
+<!-- ══════ CH2 ══════ -->
+<div class="section" id="ch2">
+  <h2>2. The Agent Lifecycle</h2>
+
+  <h3>2.1 Recall &rarr; Work &rarr; Learn &rarr; Die</h3>
+  <p>Every agent follows the same four-phase lifecycle:</p>
+
+  <div class="pipeline">Incarnation 1          Incarnation 2          Incarnation 3
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;          &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;  <span class="hl">recall()</span>  &#9474;          &#9474;  <span class="hl">recall()</span>  &#9474;          &#9474;  <span class="hl">recall()</span>  &#9474;
+&#9474;  work()    &#9474;          &#9474;  work()    &#9474;          &#9474;  work()    &#9474;
+&#9474;  <span class="hl">learn()</span>   &#9474;          &#9474;  <span class="hl">learn()</span>   &#9474;          &#9474;  <span class="hl">learn()</span>   &#9474;
+&#9474;  die       &#9474;          &#9474;  die       &#9474;          &#9474;  die       &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+      &#9474; deposit               &#9474; deposit               &#9474; deposit
+      &#9660;                       &#9660;                       &#9660;
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;                    <span class="hl">team.json</span>                         &#9474;
+&#9474;   Persistent memory. Survives all incarnations.       &#9474;
+&#9474;   Portable. Diffable. Version-controlled.             &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
+
+  <h3>2.2 Three Layers of Memory</h3>
+  <p>Each agent's section in <code>team.json</code> has three layers:</p>
+
+  <table>
+    <tr><th>Layer</th><th>Purpose</th><th>Lifecycle</th></tr>
+    <tr><td>Identity</td><td>WHO the agent is &mdash; role, description</td><td>Permanent</td></tr>
+    <tr><td>Config</td><td>HOW it works &mdash; parameters, thresholds, prompts</td><td>Tunable, preserved across projects</td></tr>
+    <tr><td>Experience</td><td>WHAT it learned &mdash; findings, stats, patterns</td><td>Accumulated per run, reset when porting</td></tr>
+  </table>
+
+  <div class="meaning">
+    When porting a team to a new project, Identity and Config carry over. Experience resets. The agent keeps its personality and skills but starts with fresh observations.
+  </div>
+
+  <h3>2.3 Attention Management</h3>
+  <p>Sub-workers deposit detailed findings. But the project manager doesn't need every detail &mdash; it needs a summary. Workers write <strong>abstractions</strong>: compressed summaries that save attention for the roles above.</p>
+  <p>The builder deposits 10 detailed findings. It also deposits a one-line summary: <em>"Refactored auth module. 3 files. Key decision: JWT over sessions."</em> The architect reads only the summary. The raw findings are still there for when the builder re-incarnates.</p>
+</div>
+
+<!-- ══════ CH3 ══════ -->
+<div class="section" id="ch3">
+  <h2>3. team.json &mdash; Persistent Memory</h2>
+
+  <h3>3.1 Structure</h3>
+  <p>A <code>team.json</code> file is the complete memory of a project team. Here's a real example (abridged):</p>
+
+<pre><code>{
+  "<span class="hl">project_id</span>": "second_brain",
+  "created": "2026-02-11",
+  "description": "AI-powered thought classifier and digest generator",
+
+  "<span class="hl">agents</span>": {
+    "classifier": {
+      "role": "Thought Classifier",
+      "description": "Classifies text into categories using Claude Haiku",
+      "<span class="hl">config</span>": {
+        "engine": "claude-haiku-4-5-20251001",
+        "confidence_threshold": 0.6,
+        "system_prompt": "You are a thought classifier..."
+      },
+      "<span class="hl">experience</span>": {
+        "run_count": 81,
+        "findings": [
+          {
+            "timestamp": "2026-02-13T00:07:38",
+            "category": "classification",
+            "problem": "classified as admin",
+            "solution": "confidence 0.95",
+            "context": { "text": "Need reminder to feed dog" }
+          }
+        ]
+      }
+    }
+  },
+
+  "<span class="hl">locations</span>": {
+    "primary_folder": "C:\\Users\\User\\Dropbox\\...",
+    "computer": "DESKTOP-PB5FJO9"
+  }
+}</code></pre>
+
+  <h3>3.2 Location Tracking</h3>
+  <p>The same team may sync across machines via Dropbox. Every <code>team.json</code> records where it lives and where each incarnation ran. An agent on Computer A may find something an agent on Computer B needs.</p>
+
+  <h3>3.3 Cross-Project Linking</h3>
+  <p>Projects can reference each other through a <code>linked_projects</code> field. This allows a research project to define vocabulary used by a data project, or multiple projects to share universal knowledge without merging teams.</p>
+</div>
+
+<!-- ══════ CH4 ══════ -->
+<div class="section" id="ch4">
+  <h2>4. The Hook System &mdash; How Enforcement Works</h2>
+
+  <h3>4.1 What Are Hooks?</h3>
+  <p>Claude Code supports <strong>hooks</strong> &mdash; shell commands that execute automatically in response to specific events during a session. Hooks are configured in <code>~/.claude/settings.json</code> and run as Python scripts.</p>
+  <p>Hooks are the enforcement layer of persistent-team. They ensure agents follow the framework's rules without relying on the agent's "good intentions." An agent can't skip steps because <strong>the hook physically blocks the tool call</strong>.</p>
+
+  <h3>4.2 Hook Events</h3>
+  <p>Claude Code fires five hook events during a session. persistent-team attaches a script to each one:</p>
+
+  <table>
+    <tr><th>Event</th><th>When It Fires</th><th>Our Script</th><th>Purpose</th></tr>
+    <tr><td><code>SessionStart</code></td><td>Session begins</td><td><code>log_session.py</code></td><td>Log session start timestamp</td></tr>
+    <tr><td><code>UserPromptSubmit</code></td><td>User sends a message</td><td><code>log_prompt.py</code></td><td>Capture every user prompt</td></tr>
+    <tr><td><code>PreToolUse</code></td><td>Before any tool runs</td><td><code>preflight_gate.py</code></td><td>Block edits/deploys if rules not met</td></tr>
+    <tr><td><code>PostToolUse</code></td><td>After any tool runs</td><td><code>log_changes.py</code></td><td>Log all file modifications</td></tr>
+    <tr><td><code>Stop</code></td><td>Session ends</td><td><code>session_end_check.py</code></td><td>Verify post-work compliance</td></tr>
+  </table>
+
+  <h3>4.3 How a Hook Works (Technically)</h3>
+  <p>When Claude Code fires a hook event, it:</p>
+  <ol>
+    <li>Serializes the event context as JSON (tool name, parameters, session ID, etc.)</li>
+    <li>Passes the JSON to the hook script via <strong>stdin</strong></li>
+    <li>Reads the script's <strong>stdout</strong> as a JSON response</li>
+    <li>If the response contains <code>"decision": "block"</code>, the tool call is <strong>rejected</strong> and the agent sees the block message</li>
+    <li>If the response is empty or contains <code>"decision": "allow"</code> (or no decision field), the tool call proceeds normally</li>
+  </ol>
+
+<pre><code><span class="hl"># How hooks are configured in ~/.claude/settings.json</span>
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python /path/to/preflight_gate.py"
+          }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+
+  <h3>4.4 The Input/Output Contract</h3>
+  <p>Every hook script reads JSON from stdin and writes JSON to stdout:</p>
+
+<pre><code><span class="hl"># Input (from Claude Code via stdin):</span>
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": { "file_path": "/path/to/file.py", ... },
+  "session_id": "abc-123-def",
+  "cwd": "C:\\Users\\User\\project"
+}
+
+<span class="hl"># Output (to Claude Code via stdout) &mdash; BLOCK:</span>
+{
+  "decision": "block",
+  "reason": "You must read CLAUDE.md before editing."
+}
+
+<span class="hl"># Output &mdash; ALLOW (or just exit silently):</span>
+{}</code></pre>
+
+  <div class="meaning">
+    The key insight: hooks run <em>outside</em> the agent's control. The agent can't override them, skip them, or argue with them. They are physical guardrails, not suggestions.
+  </div>
+
+  <h3>4.5 State Persistence Between Hooks</h3>
+  <p>Hooks are stateless scripts &mdash; each invocation is independent. But they need to track state across a session (e.g., "has the agent read CLAUDE.md yet?"). The solution:</p>
+  <ul>
+    <li>A <code>gate_state/</code> directory holds per-session JSON files</li>
+    <li>File name: <code>{session_id}.json</code></li>
+    <li>Each hook reads and updates this state file</li>
+    <li>State files auto-expire after 24 hours</li>
+  </ul>
+
+<pre><code><span class="hl"># gate_state/abc-123-def.json</span>
+{
+  "reads": ["/path/to/CLAUDE.md", "/path/to/team.json", "/path/to/sessions.log"],
+  "preflight_passed": true,
+  "project": "my-project",
+  "tests_ran": false,
+  "edits_made": true,
+  "deploys": 0
+}</code></pre>
+</div>
+
+<!-- ══════ CH5 ══════ -->
+<div class="section" id="ch5">
+  <h2>5. The Two Gates &mdash; Pre-Flight and Deploy</h2>
+
+  <h3>5.1 Gate 1: Pre-Flight (Edit/Write Blocking)</h3>
+  <p>The most important enforcement mechanism. <strong>No agent can edit any file until it has read three things:</strong></p>
+  <ol>
+    <li>The project's <code>CLAUDE.md</code> &mdash; architecture, rules, code style</li>
+    <li>The project's <code>team.json</code> &mdash; persistent memory, agent roles, past findings</li>
+    <li>At least one session log &mdash; recent activity, recurring patterns</li>
+  </ol>
+
+  <div class="pipeline"><span class="hl">Agent tries to Edit a file</span>
+         &#9660;
+  preflight_gate.py intercepts
+         &#9660;
+  Checks gate_state: has agent read
+  CLAUDE.md + team.json + logs?
+         &#9660;
+  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;     &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+  &#9474;  <span class="hl">YES</span>    &#9474;     &#9474;  NO      &#9474;
+  &#9474; Allow  &#9474;     &#9474; <span class="hl">BLOCK</span>   &#9474;
+  &#9474; edit   &#9474;     &#9474; + tell  &#9474;
+  &#9474;        &#9474;     &#9474; what to &#9474;
+  &#9474;        &#9474;     &#9474; read    &#9474;
+  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;     &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
+
+  <p>When blocked, the agent receives a message like:</p>
+<pre><code>FRAMEWORK GATE BLOCKED: You cannot edit files until you complete pre-flight reads.
+You MUST first read these files using the Read tool:
+  - project CLAUDE.md: projects/my-project/CLAUDE.md
+  - team.json: teams/my-project/team.json
+  - session logs: session_tracking/logs/sessions.log</code></pre>
+
+  <h3>5.2 Why This Matters</h3>
+  <p>Without the pre-flight gate, agents routinely:</p>
+  <ul>
+    <li>Edit code without understanding the project's architecture</li>
+    <li>Ignore past decisions and re-make them differently</li>
+    <li>Miss critical rules about what not to touch</li>
+    <li>Repeat mistakes that previous sessions already documented</li>
+  </ul>
+  <p>The gate forces context loading. It takes 10 seconds. It prevents hours of wasted work.</p>
+
+  <h3>5.3 Gate 2: Deploy (FTP Blocking)</h3>
+  <p>The deploy gate prevents pushing untested code. It triggers when the agent attempts an FTP upload (<code>curl -T ... ftp://</code>):</p>
+  <ul>
+    <li><strong>Blocks if:</strong> Edits were made this session AND tests haven't run</li>
+    <li><strong>Allows if:</strong> No edits made (read-only session) OR tests already passed</li>
+  </ul>
+  <p>The gate detects test execution by matching Bash commands against patterns like <code>python qa*.py</code> or <code>python qa_test*.py</code>.</p>
+
+  <h3>5.4 Gate 3: Session End (Post-Work Check)</h3>
+  <p>When a session ends after making edits, <code>session_end_check.py</code> verifies:</p>
+  <ul>
+    <li>Was <code>team.json</code> updated? (deposit lessons learned)</li>
+    <li>Was <code>CLAUDE.md</code> updated? (reflect architecture changes)</li>
+  </ul>
+  <p>If not, the agent gets a reminder. This ensures knowledge actually gets deposited, not lost when the session dies.</p>
+</div>
+
+<!-- ══════ CH6 ══════ -->
+<div class="section" id="ch6">
+  <h2>6. Session Tracking &mdash; Automatic Audit Trail</h2>
+
+  <h3>6.1 What Gets Logged</h3>
+  <p>Four log files capture everything that happens, with zero agent effort:</p>
+
+  <table>
+    <tr><th>Log File</th><th>What It Records</th><th>Example Entry</th></tr>
+    <tr><td><code>sessions.log</code></td><td>Session start/stop events</td><td><code>[2026-02-15 10:30] SESSION START | id=abc | cwd=/path</code></td></tr>
+    <tr><td><code>prompts.log</code></td><td>Every user message</td><td><code>[2026-02-15 10:31] session=abc | > Fix the login bug</code></td></tr>
+    <tr><td><code>changes.log</code></td><td>Every file Edit/Write</td><td><code>[2026-02-15 10:32] session=abc | Edit | /path/file.py</code></td></tr>
+    <tr><td><code>digests.log</code></td><td>Session summaries</td><td><code>edits_made=true | tests_ran=true | deploys=1</code></td></tr>
+  </table>
+
+  <h3>6.2 Why Log Everything?</h3>
+  <ul>
+    <li><strong>Accountability:</strong> Know exactly what an agent did and when</li>
+    <li><strong>Pattern detection:</strong> See which files get edited most (high-churn = trouble)</li>
+    <li><strong>Context loading:</strong> New sessions read logs to understand recent activity</li>
+    <li><strong>Forensics:</strong> When something breaks, trace exactly which session caused it</li>
+  </ul>
+
+  <div class="meaning">
+    The logging hooks are "zero cost" &mdash; they run silently, never block, and require no agent action. The agent doesn't even know they're there. But the audit trail they create is invaluable.
+  </div>
+
+  <h3>6.3 File Layout</h3>
+<pre><code>session_tracking/
+&#9500;&#9472;&#9472; log_session.py           # SessionStart + Stop hook
+&#9500;&#9472;&#9472; log_prompt.py            # UserPromptSubmit hook
+&#9500;&#9472;&#9472; log_changes.py           # PostToolUse hook (Edit/Write only)
+&#9500;&#9472;&#9472; preflight_gate.py        # PreToolUse hook (enforcement)
+&#9500;&#9472;&#9472; session_end_check.py     # Stop hook (compliance)
+&#9500;&#9472;&#9472; gate_state/              # Per-session state files (24h TTL)
+&#9492;&#9472;&#9472; logs/
+    &#9500;&#9472;&#9472; sessions.log
+    &#9500;&#9472;&#9472; prompts.log
+    &#9500;&#9472;&#9472; changes.log
+    &#9492;&#9472;&#9472; digests.log</code></pre>
+</div>
+
+<!-- ══════ CH7 ══════ -->
+<div class="section" id="ch7">
+  <h2>7. The Playbook &mdash; Accumulated Operating Wisdom</h2>
+
+  <h3>7.1 What Is the Playbook?</h3>
+  <p>The playbook (<code>playbook.md</code>) is a living document that records every hard-won lesson about how to operate agents effectively. It grows over time as new patterns are discovered and new mistakes are made.</p>
+
+  <h3>7.2 Execution Hierarchy</h3>
+  <p>The playbook defines a clear cost hierarchy for choosing how to execute tasks:</p>
+
+  <div class="pipeline">1. <span class="hl">Python scripts</span>   &mdash; Deterministic, reusable, free
+         &#9660;
+2. <span class="hl">Simple agents</span>    &mdash; Haiku for repetitive tasks
+         &#9660;
+3. <span class="hl">Complex agents</span>   &mdash; Sonnet/Opus for real reasoning
+         &#9660;
+4. <span class="hl">Claude orchestrates</span> &mdash; Stay at the top, delegate down</div>
+
+  <h3>7.3 Key Playbook Rules</h3>
+  <ul>
+    <li><strong>Python scripts first:</strong> For anything automatable, write a script. Python is deterministic, reusable, and free. Sub-agents are for reasoning tasks only.</li>
+    <li><strong>Every failed attempt is valuable data.</strong> Deposit failures immediately to prevent repeating mistakes.</li>
+    <li><strong>Maximize parallelism for non-colliding work.</strong> If tasks are independent, split across parallel agents.</li>
+    <li><strong>No external API calls without human approval.</strong> Agents must never call paid APIs autonomously.</li>
+    <li><strong>Test with real user interactions, not synthetic API calls.</strong> Playwright <code>page.click()</code>, not <code>page.evaluate()</code>.</li>
+    <li><strong>Worker agents are stateless; expert agents are stateful.</strong> Never mix these patterns.</li>
+  </ul>
+
+  <h3>7.4 Context Compaction</h3>
+  <p>Long sessions accumulate context that crowds out working memory. The playbook defines a compaction protocol:</p>
+  <ol>
+    <li><strong>Commit before removing:</strong> Write findings to long-term storage before dropping from context</li>
+    <li><strong>Keep only pointers:</strong> File path + 1-line summary + what's needed next</li>
+    <li><strong>Re-hydrate on demand:</strong> Read the state file when returning to the topic</li>
+  </ol>
+
+  <div class="meaning">
+    Anti-pattern: carrying 2000 tokens of analysis when the conclusion is one sentence. Externalize the analysis, keep the sentence.
+  </div>
+</div>
+
+<!-- ══════ CH8 ══════ -->
+<div class="section" id="ch8">
+  <h2>8. Project Structure &mdash; How Work Is Organized</h2>
+
+  <h3>8.1 Two-Folder Architecture</h3>
+  <p>Projects and their memory live in separate directories:</p>
+<pre><code>Dropbox/persistent-team/
+&#9500;&#9472;&#9472; <span class="hl">projects/</span>           # Code, data, deliverables
+&#9474;   &#9500;&#9472;&#9472; sel-research-site/
+&#9474;   &#9500;&#9472;&#9472; second_brain/
+&#9474;   &#9500;&#9472;&#9472; food/
+&#9474;   &#9492;&#9472;&#9472; ...
+&#9500;&#9472;&#9472; <span class="hl">teams/</span>              # Agent memory (team.json)
+&#9474;   &#9500;&#9472;&#9472; second_brain/
+&#9474;   &#9500;&#9472;&#9472; food/
+&#9474;   &#9492;&#9472;&#9472; ...
+&#9500;&#9472;&#9472; session_tracking/    # Hooks, logs, gate state
+&#9500;&#9472;&#9472; email/               # Shared email tools
+&#9500;&#9472;&#9472; voice/               # Shared voice transcription
+&#9500;&#9472;&#9472; keys/                # API keys (OpenAI)
+&#9500;&#9472;&#9472; playbook.md          # Operating wisdom
+&#9500;&#9472;&#9472; preferences.md       # Code style decisions
+&#9492;&#9472;&#9472; CLAUDE.md            # Root instructions</code></pre>
+
+  <h3>8.2 Project Self-Containment</h3>
+  <p>Each project has a <code>CLAUDE.md</code> in its own folder with everything an agent needs: architecture, deployment, rules, code style. Agents don't need to read the root playbook &mdash; relevant rules are inlined into each project's CLAUDE.md.</p>
+
+  <h3>8.3 Shared Tools</h3>
+  <p>Some capabilities are shared across all projects and <strong>must never be duplicated</strong>:</p>
+  <ul>
+    <li><strong>Email:</strong> <code>email/send.py</code>, <code>fetch.py</code>, <code>inbox.py</code> &mdash; sending, fetching, request tracking</li>
+    <li><strong>Voice:</strong> <code>voice/transcribe.py</code> &mdash; OpenAI Whisper transcription</li>
+    <li><strong>API Keys:</strong> <code>keys/openai.txt</code> &mdash; single source of truth</li>
+  </ul>
+</div>
+
+<!-- ══════ CH9 ══════ -->
+<div class="section" id="ch9">
+  <h2>9. Static Minisite Pattern &mdash; From Research to Web</h2>
+
+  <h3>9.1 The Pattern</h3>
+  <p>Any time a document, research paper, or dataset needs to become a shareable public webpage, the framework uses a standard pattern: a single self-contained <code>index.html</code> file deployed to GitHub Pages.</p>
+
+  <h3>9.2 Architecture</h3>
+  <ul>
+    <li>Single <code>index.html</code> with embedded CSS and JS (no external dependencies, no build step)</li>
+    <li>Placed in <code>docs/</code> folder for GitHub Pages + root level for local preview</li>
+    <li>Git repo in <code>Dropbox/persistent-team/projects/&lt;project-name&gt;/</code></li>
+    <li>Deployed to <code>aosshalem-dev.github.io/&lt;repo-name&gt;/</code></li>
+  </ul>
+
+  <h3>9.3 Consistent Visual Language</h3>
+  <p>All minisites share a palette and component library:</p>
+
+  <table>
+    <tr><th>Element</th><th>Style</th></tr>
+    <tr><td>Nav / Headers</td><td>Navy <code>#1a1a2e</code></td></tr>
+    <tr><td>Subheadings</td><td>Blue <code>#2a5a8a</code></td></tr>
+    <tr><td>Accent borders</td><td>Purple-blue <code>#667eea</code></td></tr>
+    <tr><td>Active / Highlights</td><td>Orange <code>#ff8800</code></td></tr>
+    <tr><td>Background</td><td>Light gray <code>#f5f5f8</code></td></tr>
+    <tr><td>Cards</td><td>White, <code>border-radius: 8px</code>, subtle shadow</td></tr>
+  </table>
+
+  <h3>9.4 Components</h3>
+  <ul>
+    <li><strong>Sticky nav</strong> with section links and active highlighting on scroll</li>
+    <li><strong>Blockquotes</strong> with source attribution (RTL Hebrew + LTR English support)</li>
+    <li><strong>Meaning boxes</strong> (orange border) for interpretive notes</li>
+    <li><strong>Highlight boxes</strong> for key findings</li>
+    <li><strong>Pipeline diagrams</strong> in monospace for flows</li>
+    <li><strong>Timeline tables</strong> with sticky headers</li>
+  </ul>
+
+  <h3>9.5 Current Minisites</h3>
+  <table>
+    <tr><th>Site</th><th>Repo</th><th>Topic</th></tr>
+    <tr><td>City Ranking</td><td>derug-arim</td><td>Israeli city quality-of-life rankings</td></tr>
+    <tr><td>Educational Programs</td><td>educational-programs</td><td>6,064 programs rated for ideological exposure</td></tr>
+    <tr><td>SEL Research</td><td>sel-research</td><td>Social-Emotional Learning critical analysis</td></tr>
+    <tr><td>Shefi Research</td><td>shefi-research</td><td>Shefi guidelines on gender in schools</td></tr>
+    <tr><td>NII Research</td><td>bituach-leumi-research</td><td>National Insurance research</td></tr>
+    <tr><td>Gnostocracy</td><td>gnostocracy.com</td><td>Quotes database</td></tr>
+  </table>
+</div>
+
+<!-- ══════ CH10 ══════ -->
+<div class="section" id="ch10">
+  <h2>10. Core Principles</h2>
+
+  <h3>10.1 Human Input Is Irreplaceable</h3>
+  <div class="highlight-box">
+    AI-generated content NEVER goes into a field that holds or will hold human input. Separate columns, separate files, separate everything.
+  </div>
+  <p>This is the framework's most important rule. On 2026-02-14, an agent overwrote 185 hand-written descriptions with auto-generated labels. The human analysis took hours of careful thought. The agent text took milliseconds. They are not interchangeable.</p>
+
+  <h4>Concrete rules:</h4>
+  <ul>
+    <li><strong>Human fields stay human.</strong> Agents write to a <em>different</em> column (e.g., <code>description_auto</code>, <code>*_ai</code>)</li>
+    <li><strong>Don't tell the user what they want to hear.</strong> If you made a mistake, say what actually happened</li>
+    <li><strong>Preview before bulk changes.</strong> Show before/after examples and wait for confirmation</li>
+    <li><strong>Backup before touching the database.</strong> No backup = no operation</li>
+    <li><strong>When enriching data, ADD to empty fields only.</strong> If a field has content, skip it</li>
+  </ul>
+
+  <h3>10.2 Scope Discipline</h3>
+  <p>Task-bound scope: agents do their job, nothing more. Predict next steps but don't act on them &mdash; no scope creep even with foresight. A bug fix doesn't need surrounding cleanup. A simple feature doesn't need extra configurability.</p>
+
+  <h3>10.3 Artifact Persistence</h3>
+  <p>The agent is ephemeral; the artifact outlives it. Deposit everything or it's lost. Real-time capture prevents loss &mdash; deposit during work, not just at the end.</p>
+
+  <h3>10.4 Honest Mistakes</h3>
+  <p>Value honest mistake documentation over polished reports. Every failed attempt is valuable data. Deposit failures immediately to prevent repeating them.</p>
+
+  <h3>10.5 Cost Awareness</h3>
+  <p>No external API calls without explicit human approval. Maximize deterministic preprocessing (Python, no LLM calls) since it's near-free. Budget LLM spend based on data volume. The execution hierarchy: Python &gt; Haiku &gt; Sonnet &gt; Opus.</p>
+</div>
+
+<!-- ══════ CH11 ══════ -->
+<div class="section" id="ch11">
+  <h2>11. Lessons Learned the Hard Way</h2>
+
+  <h3>11.1 The Description Overwrite Disaster (Feb 14, 2026)</h3>
+  <p>An agent was tasked with enriching a city ranking database. It overwrote 185 hand-written descriptions &mdash; hours of careful human analysis &mdash; with auto-generated labels. The human text was irreplaceable. This led to the "Human Input Is Irreplaceable" core principle and the locked fields system.</p>
+
+  <h3>11.2 Voice Recording That Never Worked (Feb 14, 2026)</h3>
+  <p>The "Today" task app went through 6+ deploy-test-fix cycles for voice recording. It passed every automated test. It failed on every real phone. Lesson: <strong>test on real devices early</strong>. Synthetic tests can pass while real users see bugs.</p>
+
+  <h3>11.3 The Plonter Rebuild Decision (Feb 14, 2026)</h3>
+  <p>An Arabic syntax app had bugs that recurred after 3+ fix cycles. Agents claimed they fixed things but didn't. The file was too large (&gt;3500 lines) for agents to reason about. Lesson: <strong>when incremental migration fails, archive and rewrite.</strong></p>
+
+  <h3>11.4 344 Synthetic Tests vs 11 Real Tests</h3>
+  <p>A test suite used Playwright's <code>page.evaluate()</code> to call JS functions directly, bypassing actual DOM events. 344 tests passed. Real users still saw bugs. Lesson: <strong>tests must use <code>page.click()</code>, not <code>page.evaluate()</code></strong>. 11 real-click tests are worth more than 344 synthetic ones.</p>
+
+  <h3>11.5 Ethical Refusal in Research Agents</h3>
+  <p>~35% of agents declined to investigate politically sensitive educational programs on ethical grounds. Lesson: deploy 2x the needed agents for sensitive topics, or rephrase prompts to focus on factual data gathering.</p>
+</div>
+
+<!-- ══════ APPENDIX A ══════ -->
+<div class="section" id="app-a">
+  <h2>Appendix A: File Tree</h2>
+
+<pre><code>Dropbox/persistent-team/
+&#9500;&#9472;&#9472; <span class="hl">CLAUDE.md</span>               # Root instructions (entry point)
+&#9500;&#9472;&#9472; <span class="hl">playbook.md</span>             # Accumulated operating wisdom
+&#9500;&#9472;&#9472; <span class="hl">preferences.md</span>          # Code style and UI decisions
+&#9500;&#9472;&#9472; <span class="hl">audit.md</span>                # Project health audit
+&#9500;&#9472;&#9472; README.md                # Framework architecture overview
+&#9474;
+&#9500;&#9472;&#9472; projects/                # Code, data, deliverables
+&#9474;   &#9500;&#9472;&#9472; &lt;project&gt;/
+&#9474;   &#9474;   &#9500;&#9472;&#9472; <span class="hl">CLAUDE.md</span>         # Project-specific instructions
+&#9474;   &#9474;   &#9500;&#9472;&#9472; SESSION_STATE.json # Current session handoff
+&#9474;   &#9474;   &#9500;&#9472;&#9472; index.html        # Main site/app
+&#9474;   &#9474;   &#9492;&#9472;&#9472; docs/              # GitHub Pages source
+&#9474;   &#9492;&#9472;&#9472; ...
+&#9474;
+&#9500;&#9472;&#9472; teams/                   # Agent memory
+&#9474;   &#9500;&#9472;&#9472; &lt;project&gt;/
+&#9474;   &#9474;   &#9492;&#9472;&#9472; <span class="hl">team.json</span>         # Persistent memory file
+&#9474;   &#9492;&#9472;&#9472; ...
+&#9474;
+&#9500;&#9472;&#9472; session_tracking/        # Hooks and logging
+&#9474;   &#9500;&#9472;&#9472; preflight_gate.py     # Pre-flight + deploy enforcement
+&#9474;   &#9500;&#9472;&#9472; log_session.py        # Session lifecycle logging
+&#9474;   &#9500;&#9472;&#9472; log_prompt.py         # User prompt capture
+&#9474;   &#9500;&#9472;&#9472; log_changes.py        # File modification logging
+&#9474;   &#9500;&#9472;&#9472; session_end_check.py  # Post-work compliance
+&#9474;   &#9500;&#9472;&#9472; gate_state/            # Per-session state (24h TTL)
+&#9474;   &#9492;&#9472;&#9472; logs/
+&#9474;       &#9500;&#9472;&#9472; sessions.log
+&#9474;       &#9500;&#9472;&#9472; prompts.log
+&#9474;       &#9500;&#9472;&#9472; changes.log
+&#9474;       &#9492;&#9472;&#9472; digests.log
+&#9474;
+&#9500;&#9472;&#9472; email/                   # Shared email tools
+&#9474;   &#9500;&#9472;&#9472; send.py               # SMTP sending + reply threading
+&#9474;   &#9500;&#9472;&#9472; fetch.py              # IMAP fetching
+&#9474;   &#9492;&#9472;&#9472; inbox.py              # Request tracking
+&#9474;
+&#9500;&#9472;&#9472; voice/
+&#9474;   &#9492;&#9472;&#9472; transcribe.py         # OpenAI Whisper
+&#9474;
+&#9492;&#9472;&#9472; keys/
+    &#9492;&#9472;&#9472; openai.txt            # API key (single source)</code></pre>
+</div>
+
+<!-- ══════ APPENDIX B ══════ -->
+<div class="section" id="app-b">
+  <h2>Appendix B: Hook Configuration Reference</h2>
+
+  <h3>Full settings.json</h3>
+<pre><code>{
+  "hooks": {
+    "<span class="hl">SessionStart</span>": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python .../session_tracking/log_session.py"
+      }]
+    }],
+
+    "<span class="hl">UserPromptSubmit</span>": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python .../session_tracking/log_prompt.py"
+      }]
+    }],
+
+    "<span class="hl">PreToolUse</span>": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python .../session_tracking/preflight_gate.py"
+      }]
+    }],
+
+    "<span class="hl">PostToolUse</span>": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python .../session_tracking/log_changes.py"
+      }]
+    }],
+
+    "<span class="hl">Stop</span>": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python .../session_tracking/log_session.py"
+      }, {
+        "type": "command",
+        "command": "python .../session_tracking/session_end_check.py"
+      }]
+    }]
+  }
+}</code></pre>
+
+  <h3>Hook Script Summary</h3>
+  <table>
+    <tr><th>Script</th><th>Event</th><th>Blocks?</th><th>State?</th><th>Logs to</th></tr>
+    <tr><td><code>log_session.py</code></td><td>SessionStart, Stop</td><td>No</td><td>No</td><td>sessions.log</td></tr>
+    <tr><td><code>log_prompt.py</code></td><td>UserPromptSubmit</td><td>No</td><td>No</td><td>prompts.log</td></tr>
+    <tr><td><code>preflight_gate.py</code></td><td>PreToolUse</td><td><strong>Yes</strong></td><td>gate_state/</td><td>&mdash;</td></tr>
+    <tr><td><code>log_changes.py</code></td><td>PostToolUse</td><td>No</td><td>No</td><td>changes.log</td></tr>
+    <tr><td><code>session_end_check.py</code></td><td>Stop</td><td><strong>Yes</strong></td><td>gate_state/</td><td>digests.log</td></tr>
+  </table>
+</div>
+
+<!-- ══════ APPENDIX C ══════ -->
+<div class="section" id="app-c">
+  <h2>Appendix C: Current Project Inventory</h2>
+  <p>As of February 2026: 31 project folders, 14 teams, 20 loose specs.</p>
+
+  <h3>Live &amp; Deployed</h3>
+  <table>
+    <tr><th>Project</th><th>Files</th><th>Description</th></tr>
+    <tr><td>second_brain</td><td>34</td><td>AI thought classifier + Telegram bot</td></tr>
+    <tr><td>food</td><td>25,137</td><td>Catering app (localStorage, needs DB)</td></tr>
+    <tr><td>today</td><td>56</td><td>Task PWA with voice (voice WIP)</td></tr>
+    <tr><td>plonter</td><td>579</td><td>Arabic syntax app v4 (rebuild planned)</td></tr>
+    <tr><td>dirug_arim</td><td>49</td><td>City ranking minisite</td></tr>
+    <tr><td>EDUCATIONAL_PROGRAMS</td><td>1,419</td><td>6,064 programs rated</td></tr>
+  </table>
+
+  <h3>Research Minisites</h3>
+  <table>
+    <tr><th>Project</th><th>Topic</th><th>Status</th></tr>
+    <tr><td>sel-research-site</td><td>SEL critical analysis (14 chapters)</td><td>Live</td></tr>
+    <tr><td>shefi-research-site</td><td>Shefi guidelines critique (12 chapters)</td><td>Live</td></tr>
+    <tr><td>bituach_leumi</td><td>National Insurance research</td><td>Complete</td></tr>
+    <tr><td>atar_tzitatim</td><td>Quotes (gnostocracy.com)</td><td>Live</td></tr>
+  </table>
+
+  <h3>In Progress</h3>
+  <table>
+    <tr><th>Project</th><th>Status</th></tr>
+    <tr><td>uvacharta_bachayim</td><td>Philosophical framework, early stage</td></tr>
+    <tr><td>gmail</td><td>99.4% categorized (276 remaining)</td></tr>
+    <tr><td>framework-site</td><td>This site</td></tr>
+  </table>
+</div>
+
+<!-- ══════ APPENDIX (anchor) ══════ -->
+<div id="appendix" style="height:0;overflow:hidden;"></div>
+
+</div><!-- .container -->
+
+<footer>
+  persistent-team &mdash; MIT License &mdash; 2026
+</footer>
+
+<script>
+// Smooth scroll
+document.querySelectorAll('nav a, .toc a').forEach(a => {
+  a.addEventListener('click', e => {
+    const h = a.getAttribute('href');
+    if (h && h.startsWith('#')) {
+      e.preventDefault();
+      const t = document.querySelector(h);
+      if (t) window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 50, behavior: 'smooth' });
+    }
+  });
+});
+
+// Active link on scroll
+const sections = document.querySelectorAll('.section[id]');
+const navLinks = document.querySelectorAll('nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.remove('active');
+    if (a.getAttribute('href') === '#' + current) a.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
