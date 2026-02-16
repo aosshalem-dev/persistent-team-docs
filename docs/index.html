@@ -271,7 +271,7 @@ footer {
   <a href="#ch2">Lifecycle</a>
   <a href="#ch3">team.json</a>
   <a href="#ch4">Hooks</a>
-  <a href="#ch5">Gates</a>
+  <a href="#ch5">4 Gates</a>
   <a href="#ch6">Session Tracking</a>
   <a href="#ch7">Playbook</a>
   <a href="#ch8">Projects</a>
@@ -298,7 +298,7 @@ footer {
     <li><a href="#ch2">The Agent Lifecycle</a></li>
     <li><a href="#ch3">team.json &mdash; Persistent Memory</a></li>
     <li><a href="#ch4">The Hook System &mdash; How Enforcement Works</a></li>
-    <li><a href="#ch5">The Two Gates &mdash; Pre-Flight and Deploy</a></li>
+    <li><a href="#ch5">The Four Gates &mdash; Pre-Flight, Deploy, Human Input, Session End</a></li>
     <li><a href="#ch6">Session Tracking &mdash; Automatic Audit Trail</a></li>
     <li><a href="#ch7">The Playbook &mdash; Accumulated Operating Wisdom</a></li>
     <li><a href="#ch8">Project Structure &mdash; How Work Is Organized</a></li>
@@ -466,8 +466,8 @@ footer {
     <tr><th>Event</th><th>When It Fires</th><th>Our Script</th><th>Purpose</th></tr>
     <tr><td><code>SessionStart</code></td><td>Session begins</td><td><code>log_session.py</code></td><td>Log session start timestamp</td></tr>
     <tr><td><code>UserPromptSubmit</code></td><td>User sends a message</td><td><code>log_prompt.py</code></td><td>Capture every user prompt</td></tr>
-    <tr><td><code>PreToolUse</code></td><td>Before any tool runs</td><td><code>preflight_gate.py</code></td><td>Block edits/deploys if rules not met</td></tr>
-    <tr><td><code>PostToolUse</code></td><td>After any tool runs</td><td><code>log_changes.py</code></td><td>Log all file modifications</td></tr>
+    <tr><td><code>PreToolUse</code></td><td>Before any tool runs</td><td><code>preflight_gate.py</code> + <code>human_input_gate.py</code></td><td>Block edits/deploys if rules not met; enforce human input protection</td></tr>
+    <tr><td><code>PostToolUse</code></td><td>After any tool runs</td><td><code>log_changes.py</code> + <code>log_cost.py</code></td><td>Log file modifications + log every tool call</td></tr>
     <tr><td><code>Stop</code></td><td>Session ends</td><td><code>session_end_check.py</code></td><td>Verify post-work compliance</td></tr>
   </table>
 
@@ -538,13 +538,15 @@ footer {
   "project": "my-project",
   "tests_ran": false,
   "edits_made": true,
-  "deploys": 0
+  "deploys": 0,
+  "db_backup_done": false,
+  "bulk_preview_done": false
 }</code></pre>
 </div>
 
 <!-- ══════ CH5 ══════ -->
 <div class="section" id="ch5">
-  <h2>5. The Two Gates &mdash; Pre-Flight and Deploy</h2>
+  <h2>5. The Four Gates &mdash; Pre-Flight, Deploy, Human Input, Session End</h2>
 
   <h3>5.1 Gate 1: Pre-Flight (Edit/Write Blocking)</h3>
   <p>The most important enforcement mechanism. <strong>No agent can edit any file until it has read three things:</strong></p>
@@ -594,7 +596,40 @@ You MUST first read these files using the Read tool:
   </ul>
   <p>The gate detects test execution by matching Bash commands against patterns like <code>python qa*.py</code> or <code>python qa_test*.py</code>.</p>
 
-  <h3>5.4 Gate 3: Session End (Post-Work Check)</h3>
+  <h3>5.4 Gate 3: Human Input Protection (Added 2026-02-16)</h3>
+  <p>The <code>human_input_gate.py</code> script runs as a second <code>PreToolUse</code> hook, enforcing the "Human Input Is Irreplaceable" rules with actual code &mdash; not just documentation. It contains three sub-gates:</p>
+
+  <h4>5.4.1 Bulk Database Protection</h4>
+  <p>When a Bash command contains SQL <code>UPDATE</code> or <code>DELETE</code>:</p>
+  <ul>
+    <li><strong>Backup required:</strong> Denied until a backup command ran this session (detects <code>.dump</code>, <code>pg_dump</code>, <code>mysqldump</code>, <code>cp *.db</code>)</li>
+    <li><strong>Preview required for bulk ops:</strong> If the SQL has no specific <code>WHERE id=X LIMIT 1</code>, denied until a <code>SELECT</code> preview ran. Preview flag resets after each operation.</li>
+  </ul>
+  <p>When blocked, the agent sees:</p>
+<pre><code>HUMAN INPUT GATE: Database modification without backup.
+Rule: Every bulk DB operation starts with an export. No backup = no operation.
+Run a backup first:
+  sqlite3 database.db .dump > backup.sql
+  pg_dump dbname > backup.sql</code></pre>
+
+  <h4>5.4.2 Locked Field Protection</h4>
+  <p>Any Bash command matching <code>_locked=false</code>, <code>force_unlock</code>, or <code>unlock=true</code> is <strong>denied outright</strong>. Agents never touch locks.</p>
+
+  <h4>5.4.3 Human Field Protection (Edit/Write on team data)</h4>
+  <p>When editing or writing <code>teams/*.json</code> files:</p>
+  <ul>
+    <li><strong>Field overwrites blocked:</strong> If a non-empty <code>description</code>, <code>summary</code>, <code>decision</code>, <code>reason</code>, <code>notes</code>, or <code>analysis</code> field is being replaced with different content, the edit is denied. Agent must use <code>*_auto</code> or <code>*_ai</code> suffix instead.</li>
+    <li><strong>Array shrinkage blocked:</strong> If <code>sessions</code>, <code>lessons_learned</code>, <code>known_gaps</code>, or <code>decisions</code> arrays would lose items, the write is denied. Deletions require explicit user confirmation.</li>
+    <li><strong>Recursive checking:</strong> Protection applies at all nesting levels, not just top-level fields.</li>
+  </ul>
+  <p>When blocked, the agent sees:</p>
+<pre><code>HUMAN INPUT GATE: Edit overwrites human field 'description' in team data.
+  Current: "Hebrew RTL catering business management app..."
+  New:     "Auto-generated app description"
+Rule: Human fields stay human. AI-generated content goes in a DIFFERENT field
+(e.g., 'description_auto' or 'description_ai').</code></pre>
+
+  <h3>5.5 Gate 4: Session End (Post-Work Check)</h3>
   <p>When a session ends after making edits, <code>session_end_check.py</code> verifies:</p>
   <ul>
     <li>Was <code>team.json</code> updated? (deposit lessons learned)</li>
@@ -608,13 +643,14 @@ You MUST first read these files using the Read tool:
   <h2>6. Session Tracking &mdash; Automatic Audit Trail</h2>
 
   <h3>6.1 What Gets Logged</h3>
-  <p>Four log files capture everything that happens, with zero agent effort:</p>
+  <p>Five log files capture everything that happens, with zero agent effort:</p>
 
   <table>
     <tr><th>Log File</th><th>What It Records</th><th>Example Entry</th></tr>
     <tr><td><code>sessions.log</code></td><td>Session start/stop events</td><td><code>[2026-02-15 10:30] SESSION START | id=abc | cwd=/path</code></td></tr>
     <tr><td><code>prompts.log</code></td><td>Every user message</td><td><code>[2026-02-15 10:31] session=abc | > Fix the login bug</code></td></tr>
     <tr><td><code>changes.log</code></td><td>Every file Edit/Write</td><td><code>[2026-02-15 10:32] session=abc | Edit | /path/file.py</code></td></tr>
+    <tr><td><code>costs.jsonl</code></td><td>Every tool call (all tools)</td><td><code>{"ts":"...", "session":"abc", "tool":"Read", "project":"food"}</code></td></tr>
     <tr><td><code>digests.log</code></td><td>Session summaries</td><td><code>edits_made=true | tests_ran=true | deploys=1</code></td></tr>
   </table>
 
@@ -635,13 +671,16 @@ You MUST first read these files using the Read tool:
 &#9500;&#9472;&#9472; log_session.py           # SessionStart + Stop hook
 &#9500;&#9472;&#9472; log_prompt.py            # UserPromptSubmit hook
 &#9500;&#9472;&#9472; log_changes.py           # PostToolUse hook (Edit/Write only)
-&#9500;&#9472;&#9472; preflight_gate.py        # PreToolUse hook (enforcement)
+&#9500;&#9472;&#9472; <span class="hl">log_cost.py</span>              # PostToolUse hook (ALL tool calls)
+&#9500;&#9472;&#9472; preflight_gate.py        # PreToolUse hook (pre-flight + deploy)
+&#9500;&#9472;&#9472; <span class="hl">human_input_gate.py</span>      # PreToolUse hook (human input protection)
 &#9500;&#9472;&#9472; session_end_check.py     # Stop hook (compliance)
 &#9500;&#9472;&#9472; gate_state/              # Per-session state files (24h TTL)
 &#9492;&#9472;&#9472; logs/
     &#9500;&#9472;&#9472; sessions.log
     &#9500;&#9472;&#9472; prompts.log
     &#9500;&#9472;&#9472; changes.log
+    &#9500;&#9472;&#9472; <span class="hl">costs.jsonl</span>
     &#9492;&#9472;&#9472; digests.log</code></pre>
 </div>
 
@@ -784,12 +823,16 @@ You MUST first read these files using the Read tool:
 
   <h4>Concrete rules:</h4>
   <ul>
-    <li><strong>Human fields stay human.</strong> Agents write to a <em>different</em> column (e.g., <code>description_auto</code>, <code>*_ai</code>)</li>
-    <li><strong>Don't tell the user what they want to hear.</strong> If you made a mistake, say what actually happened</li>
-    <li><strong>Preview before bulk changes.</strong> Show before/after examples and wait for confirmation</li>
-    <li><strong>Backup before touching the database.</strong> No backup = no operation</li>
-    <li><strong>When enriching data, ADD to empty fields only.</strong> If a field has content, skip it</li>
+    <li><strong>Human fields stay human.</strong> Agents write to a <em>different</em> column (e.g., <code>description_auto</code>, <code>*_ai</code>) <span style="color:#2a5a8a;font-weight:700">[CODE-ENFORCED]</span></li>
+    <li><strong>Don't tell the user what they want to hear.</strong> If you made a mistake, say what actually happened <span style="color:#888;font-size:0.88em">(prompt-enforced only)</span></li>
+    <li><strong>Preview before bulk changes.</strong> Show before/after examples and wait for confirmation <span style="color:#2a5a8a;font-weight:700">[CODE-ENFORCED]</span></li>
+    <li><strong>Backup before touching the database.</strong> No backup = no operation <span style="color:#2a5a8a;font-weight:700">[CODE-ENFORCED]</span></li>
+    <li><strong>When enriching data, ADD to empty fields only.</strong> If a field has content, skip it <span style="color:#2a5a8a;font-weight:700">[CODE-ENFORCED]</span></li>
+    <li><strong>Locked fields.</strong> Agents NEVER pass unlock flags <span style="color:#2a5a8a;font-weight:700">[CODE-ENFORCED]</span></li>
   </ul>
+  <div class="meaning">
+    As of 2026-02-16, rules marked [CODE-ENFORCED] are backed by <code>human_input_gate.py</code> &mdash; a PreToolUse hook that physically blocks the tool call. The agent cannot override these rules.
+  </div>
 
   <h3>10.2 Scope Discipline</h3>
   <p>Task-bound scope: agents do their job, nothing more. Predict next steps but don't act on them &mdash; no scope creep even with foresight. A bug fix doesn't need surrounding cleanup. A simple feature doesn't need extra configurability.</p>
@@ -850,15 +893,18 @@ You MUST first read these files using the Read tool:
 &#9474;
 &#9500;&#9472;&#9472; session_tracking/        # Hooks and logging
 &#9474;   &#9500;&#9472;&#9472; preflight_gate.py     # Pre-flight + deploy enforcement
+&#9474;   &#9500;&#9472;&#9472; <span class="hl">human_input_gate.py</span>   # Human input protection (bulk DB, locks, fields)
 &#9474;   &#9500;&#9472;&#9472; log_session.py        # Session lifecycle logging
 &#9474;   &#9500;&#9472;&#9472; log_prompt.py         # User prompt capture
 &#9474;   &#9500;&#9472;&#9472; log_changes.py        # File modification logging
+&#9474;   &#9500;&#9472;&#9472; <span class="hl">log_cost.py</span>           # Tool call logging (all tools)
 &#9474;   &#9500;&#9472;&#9472; session_end_check.py  # Post-work compliance
 &#9474;   &#9500;&#9472;&#9472; gate_state/            # Per-session state (24h TTL)
 &#9474;   &#9492;&#9472;&#9472; logs/
 &#9474;       &#9500;&#9472;&#9472; sessions.log
 &#9474;       &#9500;&#9472;&#9472; prompts.log
 &#9474;       &#9500;&#9472;&#9472; changes.log
+&#9474;       &#9500;&#9472;&#9472; <span class="hl">costs.jsonl</span>
 &#9474;       &#9492;&#9472;&#9472; digests.log
 &#9474;
 &#9500;&#9472;&#9472; email/                   # Shared email tools
@@ -898,6 +944,9 @@ You MUST first read these files using the Read tool:
       "hooks": [{
         "type": "command",
         "command": "python .../session_tracking/preflight_gate.py"
+      }, {
+        "type": "command",
+        "command": "python .../session_tracking/human_input_gate.py"
       }]
     }],
 
@@ -905,6 +954,9 @@ You MUST first read these files using the Read tool:
       "hooks": [{
         "type": "command",
         "command": "python .../session_tracking/log_changes.py"
+      }, {
+        "type": "command",
+        "command": "python .../session_tracking/log_cost.py"
       }]
     }],
 
@@ -926,7 +978,9 @@ You MUST first read these files using the Read tool:
     <tr><td><code>log_session.py</code></td><td>SessionStart, Stop</td><td>No</td><td>No</td><td>sessions.log</td></tr>
     <tr><td><code>log_prompt.py</code></td><td>UserPromptSubmit</td><td>No</td><td>No</td><td>prompts.log</td></tr>
     <tr><td><code>preflight_gate.py</code></td><td>PreToolUse</td><td><strong>Yes</strong></td><td>gate_state/</td><td>&mdash;</td></tr>
+    <tr><td><code>human_input_gate.py</code></td><td>PreToolUse</td><td><strong>Yes</strong></td><td>gate_state/</td><td>&mdash;</td></tr>
     <tr><td><code>log_changes.py</code></td><td>PostToolUse</td><td>No</td><td>No</td><td>changes.log</td></tr>
+    <tr><td><code>log_cost.py</code></td><td>PostToolUse</td><td>No</td><td>No</td><td>costs.jsonl</td></tr>
     <tr><td><code>session_end_check.py</code></td><td>Stop</td><td><strong>Yes</strong></td><td>gate_state/</td><td>digests.log</td></tr>
   </table>
 </div>
